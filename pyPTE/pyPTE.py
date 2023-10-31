@@ -133,16 +133,19 @@ def compute_PTE(phase, delay):
             y = phase[:-delay, j]
             x = phase[:-delay, i]
 
-            P_y = np.zeros([y.max() +1])
+            P_y = np.zeros([y.max() + 1])
             np.add.at(P_y, [y], 1)
 
-            P_ypr_y = np.zeros([ypr.max()+1, y.max()+1])
+            max_dim_ypr_y = max(ypr.max(), y.max()) + 1
+            P_ypr_y = np.zeros([max_dim_ypr_y, max_dim_ypr_y])
             np.add.at(P_ypr_y, [ypr, y], 1)
 
-            P_y_x = np.zeros([y.max()+1, x.max()+1])
+            max_dim_y_x = max(y.max(), x.max()) + 1
+            P_y_x = np.zeros([max_dim_y_x, max_dim_y_x])
             np.add.at(P_y_x, [y, x], 1)
 
-            P_ypr_y_x = np.zeros([ypr.max()+1, y.max()+1, x.max()+1])
+            max_dim_ypr_y_x = max(ypr.max(), y.max(), x.max()) + 1
+            P_ypr_y_x = np.zeros([max_dim_ypr_y_x, max_dim_ypr_y_x, max_dim_ypr_y_x])
             np.add.at(P_ypr_y_x, [ypr, y, x], 1)
 
             P_y /= (m-delay)
