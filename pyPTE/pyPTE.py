@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 from scipy.signal import hilbert
-
+from collections import Counter
 
 def get_delay(phase):
     """
@@ -17,12 +17,22 @@ def get_delay(phase):
     delay : int
     """
     phase = phase
-    m, n = phase.shape
-    c1 = n*(m-2)
-    r_phase = np.roll(phase, 2, axis=0)
-    m = np.multiply(phase, r_phase)[1:-1]
+    n_channel, n_sample = phase.shape
+    c1 = n_channel*(n_sample-2)
+    r_phase = np.roll(phase, 2, axis=1)
+    m = np.multiply(phase, r_phase)[:,1:-1]
     c2 = (m < 0).sum()
     delay = int(np.round(c1/c2))
+    
+    
+    # counter1 = 0
+    # counter2 = 0
+    # for i in range(n_channel):
+    #     for j in range(1, n_sample-1,1):
+    #         counter1 += 1
+    #         if (phase[i,j-1]) * (phase[i,j+1]) <0 :
+    #             counter2 +=1
+    # delay2 = int(np.round(counter1/counter2))            
     return delay
 
 
@@ -41,7 +51,7 @@ def get_phase(time_series):
         m x n ndarray : m: number of channels, n: number of samples
     """
 
-    complex_series = hilbert(time_series, axis=0)
+    complex_series = hilbert(time_series, axis=-1)
     phase = np.angle(complex_series)
     return phase
 
@@ -83,7 +93,7 @@ def get_binsize(phase, c = 3.49):
     """
 
     m, n = phase.shape
-    binsize = c * np.mean(np.std(phase, axis=0, ddof=1)) * m ** (-1.0 / 3)
+    binsize = c * np.mean(np.std(phase, axis=-1)) * n ** (-1.0 / 3)
     return binsize
 
 def get_bincount(binsize):
@@ -103,7 +113,12 @@ def get_bincount(binsize):
     bincount = len(bins_w)
     return bincount
 
-
+def compute_prob(x):
+    counts = len(x)
+    counter = Counter(x)
+    prob = [i[1]/counts for i in counter.items()]
+    return np.array(prob)
+    
 def compute_PTE(phase, delay):
     """
     For each channel pair (x, y) containing the individual discretized phase, which is obtained by pyPTE.pyPTE.get_discretized_phase,
@@ -128,27 +143,28 @@ def compute_PTE(phase, delay):
 
     for i in range(0, m):
         for j in range(0, m):
+        
+            ypr = phase[j, delay:]
+            y = phase[j, :-delay]
+            x = phase[i,:-delay]
 
-            ypr = phase[delay:, j]
-            y = phase[:-delay, j]
-            x = phase[:-delay, i]
+            #P_y = np.zeros([y.max() +1])
+            #np.add.at(P_y, [y], 1)
+            P_y = compute_prob(y.tolist())
+            
+            #P_ypr_y = np.zeros([ypr.max()+1, y.max()+1])
+            #np.add.at(P_ypr_y, [ypr, y], 1)
+            P_ypr_y = compute_prob(list(zip(ypr.tolist(), y.tolist())))
+            
 
-            P_y = np.zeros([y.max() +1])
-            np.add.at(P_y, [y], 1)
+            #P_y_x = np.zeros([y.max()+1, x.max()+1])
+            #np.add.at(P_y_x, [y, x], 1)
+            P_y_x = compute_prob(list(zip(y.tolist(), x.tolist())))
 
-            P_ypr_y = np.zeros([ypr.max()+1, y.max()+1])
-            np.add.at(P_ypr_y, [ypr, y], 1)
+            #P_ypr_y_x = np.zeros([ypr.max()+1, y.max()+1, x.max()+1])
+            #np.add.at(P_ypr_y_x, [ypr, y, x], 1)
+            P_ypr_y_x = compute_prob(list(zip(ypr.tolist(), y.tolist(), x.tolist())))
 
-            P_y_x = np.zeros([y.max()+1, x.max()+1])
-            np.add.at(P_y_x, [y, x], 1)
-
-            P_ypr_y_x = np.zeros([ypr.max()+1, y.max()+1, x.max()+1])
-            np.add.at(P_ypr_y_x, [ypr, y, x], 1)
-
-            P_y /= (m-delay)
-            P_ypr_y /= (m-delay)
-            P_y_x /= (m-delay)
-            P_ypr_y_x /= (m-delay)
 
             Hy = -np.nansum(np.multiply(P_y,np.log2(P_y)))
             Hypr_y = - np.nansum(np.nansum(np.multiply(P_ypr_y, np.log2(P_ypr_y))))
